@@ -1,1 +1,2 @@
-"""Hybrid search module combining BM25 and vector search."""
+"""Hybrid search module combining FAISS and Elastic Search"""
+

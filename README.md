@@ -4,7 +4,7 @@ LLM-powered search engine with hybrid search and re-ranking capabilities.
 
 ## Features
 
-- 🔄 **Hybrid Search**: Combines BM25 (keyword) and vector search (semantic) for optimal results
+- 🔄 **Hybrid Search**: Combines FAISS and ElasticSearch for optimal results
 - 🤖 **LLM Re-ranking**: Uses large language models to re-rank search results for better relevance
 - ⚡ **FastAPI Backend**: High-performance REST API
 - 📊 **Evaluation Metrics**: Built-in support for NDCG, MRR, and other IR metrics

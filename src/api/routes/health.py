@@ -18,6 +18,7 @@ async def health_check():
 async def readiness_check():
     """Readiness check endpoint."""
     # Add checks for dependencies (DB, cache, etc.)
+    # I would have to add more checks here before sending the response
     return {
         "status": "ready",
         "service": "SearchGPT",

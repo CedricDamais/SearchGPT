@@ -1,48 +1,21 @@
-"""Configuration management for SearchGPT."""
-
-from functools import lru_cache
-from typing import Optional
-from pydantic_settings import BaseSettings, SettingsConfigDict
-
+# src/core/config.py
+from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    """Application settings."""
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    EMBEDDING_MODEL: str = "nomic-embed-text"
+    RERANKING_MODEL: str = "llama3.2:3b"
     
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=False,
-    )
+    # Search settings
+    DEFAULT_TOP_K: int = 10
+    DEFAULT_HYBRID_ALPHA: float = 0.5
+    RERANKING_TOP_K: int = 50  # Re-rank top 50 from hybrid search
     
-    # API Settings
-    api_host: str = "0.0.0.0"
-    api_port: int = 8000
-    api_reload: bool = False
+    EMBEDDING_BATCH_SIZE: int = 32
+    RERANKING_BATCH_SIZE: int = 5
+    ENABLE_CACHING: bool = True
     
-    # LLM Settings
-    openai_api_key: Optional[str] = None
-    anthropic_api_key: Optional[str] = None
-    default_llm_provider: str = "openai"
-    default_llm_model: str = "gpt-4o-mini"
-    
-    # Search Settings
-    default_top_k: int = 10
-    default_hybrid_alpha: float = 0.5
-    enable_reranking: bool = True
-    
-    # Vector Database Settings
-    vector_db_path: str = "data/indices"
-    embedding_model: str = "text-embedding-3-small"
-    
-    # Cache Settings
-    cache_enabled: bool = True
-    cache_ttl: int = 3600  # seconds
-    
-    # Logging
-    log_level: str = "INFO"
+    class Config:
+        env_file = ".env"
 
-
-@lru_cache
-def get_settings() -> Settings:
-    """Get cached settings instance."""
-    return Settings()
+settings = Settings()

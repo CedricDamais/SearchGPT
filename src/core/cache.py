@@ -37,7 +37,6 @@ class SimpleCache:
         self._cache.clear()
 
 
-# Global cache instance
 cache = SimpleCache()
 
 

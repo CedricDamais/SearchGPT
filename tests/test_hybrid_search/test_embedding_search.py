@@ -276,6 +276,78 @@ class TestEmbeddingSearchEdgeCases:
         assert len(results) == 2
 
 
+class TestEmbeddingSearchPersistence:
+    """Test saving and loading FAISS indices."""
+    
+    def test_save_and_load_index(self, tmp_path):
+        """Test that we can save and load FAISS index."""
+        manager = Mock(spec=EmbeddingManager)
+        
+        # Create and populate index
+        search1 = EmbeddingSearch(manager)
+        embeddings = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
+        documents = ["doc0", "doc1", "doc2"]
+        search1.dump_in_vector_store(embeddings, documents)
+        
+        index_path = tmp_path / "test_index.faiss"
+        search1.save_index(str(index_path))
+        
+        assert index_path.exists(), "Index file should exist"
+        
+        search2 = EmbeddingSearch(manager)
+        search2.load_index(str(index_path))
+        
+        assert search2.index is not None
+        assert search2.index.ntotal == 3, "Should have 3 vectors"
+        
+        manager.get_embedding.return_value = [1.0, 0.0, 0.0]
+        results = search2.search("test", top_k=2)
+        
+        assert len(results) == 2
+        assert results[0][0] == "0", "First doc should match best"
+    
+    def test_save_without_index_raises_error(self, tmp_path):
+        """Test that saving without an index raises an error."""
+        manager = Mock(spec=EmbeddingManager)
+        search = EmbeddingSearch(manager)
+        
+        index_path = tmp_path / "test_index.faiss"
+        
+        with pytest.raises(ValueError, match="No index to save"):
+            search.save_index(str(index_path))
+    
+    def test_loaded_index_matches_original(self, tmp_path):
+        """Test that loaded index produces same results as original."""
+        manager = Mock(spec=EmbeddingManager)
+        
+        embeddings = [
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.5, 0.5, 0.0],
+        ]
+        documents = ["doc0", "doc1", "doc2"]
+        
+        # Original index
+        search1 = EmbeddingSearch(manager)
+        search1.dump_in_vector_store(embeddings, documents)
+        
+        manager.get_embedding.return_value = [0.9, 0.1, 0.0]
+        results1 = search1.search("test", top_k=3)
+        
+        index_path = tmp_path / "test_index.faiss"
+        search1.save_index(str(index_path))
+        
+        search2 = EmbeddingSearch(manager)
+        search2.load_index(str(index_path))
+        
+        results2 = search2.search("test", top_k=3)
+        
+        assert len(results1) == len(results2)
+        for (id1, score1), (id2, score2) in zip(results1, results2):
+            assert id1 == id2
+            assert abs(score1 - score2) < 1e-6 
+
+
 @pytest.mark.slow
 @pytest.mark.integration
 class TestEmbeddingActualWorkflow:

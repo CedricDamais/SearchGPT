@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     EMBEDDING_BATCH_SIZE: int = 32
     RERANKING_BATCH_SIZE: int = 5
     ENABLE_CACHING: bool = True
+
+    INDEX_DIR : str = "data/indices/"
     
     class Config:
         env_file = ".env"

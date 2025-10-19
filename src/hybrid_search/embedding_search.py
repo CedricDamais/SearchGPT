@@ -41,6 +41,35 @@ class EmbeddingSearch:
 
         vectors = np.array(embeddings).astype('float32')
         self.index.add(vectors)
+    
+    def save_index(self, index_path: str) -> None:
+        """
+        Save FAISS index to disk.
+        
+        Args:
+            index_path: Path where to save the index file
+            
+        Example:
+            >>> search.save_index('data/indices/products.faiss')
+        """
+        if self.index is None:
+            raise ValueError("No index to save. Build index first using dump_in_vector_store().")
+        
+        faiss.write_index(self.index, index_path)
+        logger.info(f"Saved FAISS index to {index_path} ({self.index.ntotal} vectors)")
+    
+    def load_index(self, index_path: str) -> None:
+        """
+        Load FAISS index from disk.
+        
+        Args:
+            index_path: Path to the saved index file
+            
+        Example:
+            >>> search.load_index('data/indices/products.faiss')
+        """
+        self.index = faiss.read_index(index_path)
+        logger.info(f"Loaded FAISS index from {index_path} ({self.index.ntotal} vectors)")
         
     def load_embeddings_from_vector_store(self, query_embedding: list[float], top_k: int) -> list[tuple[str, float]]:
         """

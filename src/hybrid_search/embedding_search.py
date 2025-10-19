@@ -1,45 +1,64 @@
 from src.core.embedding_manager import EmbeddingManager
-
-
-class EmbeddingLoader:
-    """
-    Load and manage embeddings for documents.
-    """
-    
-    def __init__(self, embedding_manager: EmbeddingManager):
-        self.embedding_manager = embedding_manager
-    
-    def load_embeddings(self, documents: list[str]) -> list[list[float]]:
-        """
-        Load embeddings for a list of documents.
-        """
-        embeddings = self.embedding_manager.get_batch_embedding(documents)
-        return embeddings
-    
-    def dump_in_vector_store(self, embeddings: list[list[float]], documents: list[str]) -> None:
-        """
-        Drop embeddings into the vector store.
-        """
-        pass
-
-    def load_embeddings_from_vector_store(self, query_embedding: list[float], top_k: int) -> list[tuple[str, float]]:
-        """
-        Load top_k embeddings from vector store based on query embedding.
-        """
-        pass
-
+import faiss
+import numpy as np
+from src.core.logging import logger
 class EmbeddingSearch:
     """
     Hybrid search using embeddings.
     """
-    
     def __init__(self, embedding_manager: EmbeddingManager):
         self.embedding_manager = embedding_manager
+        self.index = None  # FAISS index will be initialized later
+        logger.info("Initialized EmbeddingSearch with FAISS index ...")
+        
     
     def search(self, query: str, top_k: int) -> list[tuple[str, float]]:
         """
         Perform embedding-based search.
         """
         query_embedding = self.embedding_manager.get_embedding(query)
-        # Search logic to find top_k similar documents based on query_embedding
-        pass
+        logger.info(f"Generated embedding for query: {query}")
+        results = self.load_embeddings_from_vector_store(query_embedding, top_k)
+        logger.info(f"Search completed for query: {query}")
+        return results
+
+    def load_embeddings(self, documents: list[str]) -> list[list[float]]:
+        """
+        Load embeddings for a list of documents.
+        """
+        logger.info(f"Loading embeddings for {len(documents)} documents...")
+        embeddings = self.embedding_manager.get_batch_embedding(documents)
+        logger.info("Embeddings loaded successfully.")
+        return embeddings
+    
+    def dump_in_vector_store(self, embeddings: list[list[float]], documents: list[str]) -> None:
+        """
+        Drop embeddings into the vector store.
+        """
+        if self.index is None:
+            dimension = len(embeddings[0])
+            self.index = faiss.IndexFlatIP(dimension)
+
+        vectors = np.array(embeddings).astype('float32')
+        self.index.add(vectors)
+        
+    def load_embeddings_from_vector_store(self, query_embedding: list[float], top_k: int) -> list[tuple[str, float]]:
+        """
+        Load top_k embeddings from vector store based on query embedding.
+        """
+        if self.index is None:
+            raise ValueError("FAISS index is not initialized.")
+        
+        logger.info("Searching in FAISS index...")
+        query_vector = np.array([query_embedding]).astype('float32')
+        distances, indices = self.index.search(query_vector, top_k)
+        
+        logger.info(f"Search completed in FAISS index for query: {query_embedding}")
+
+        results = []
+        for dist, idx in zip(distances[0], indices[0]):
+            # Filter out invalid indices (FAISS returns -1 when top_k > num_docs)
+            if idx != -1:
+                results.append((str(idx), float(dist)))
+        
+        return results

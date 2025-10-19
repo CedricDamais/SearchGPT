@@ -12,6 +12,7 @@ All methods return list[float] for consistency and JSON serialization.
 from typing import List, Literal
 import numpy as np
 from src.core.config import settings
+import spacy
 
 EmbeddingBackend = Literal["ollama", "sentence-transformers", "openai"]
 
@@ -76,23 +77,45 @@ class EmbeddingManager:
             >>> len(embedding)  # Dimension depends on model
             768
         """
+        processed_text = self.preprocess_text(text=text)
         if self.backend == "ollama":
             response = self._client.embeddings(
                 model=self.model_name,
-                prompt=text
+                prompt=processed_text
             )
             return response['embedding']
         
         elif self.backend == "sentence-transformers":
-            embedding = self._model.encode(text)
+            embedding = self._model.encode(processed_text)
             return embedding.tolist()
         
         elif self.backend == "openai":
             response = self._client.embeddings.create(
                 model=self.model_name,
-                input=text
+                input=processed_text
             )
             return response.data[0].embedding
+    
+    def preprocess_text(self, text: str) -> str:
+        """
+        Preprocess text before embedding.
+        
+        Args:
+            text: Raw input text
+            
+        Returns:
+            Preprocessed text, e.g., lowercased, stripped, lemmatized, etc.
+            
+        Example:
+            >>> manager = EmbeddingManager()
+            >>> preprocessed = manager.preprocess_text("  Hello World!  ")
+            >>> preprocessed
+            'hello world!'
+        """
+        nlp = spacy.load("en_core_web_sm")
+        doc = nlp(text.strip().lower())
+        preprocessed = " ".join([token.lemma_ for token in doc if not token.is_punct and not token.is_space])
+        return preprocessed
     
     def get_batch_embedding(self, text_batch: List[str]) -> List[List[float]]:
         """
@@ -112,17 +135,18 @@ class EmbeddingManager:
             >>> type(embeddings[0])
             <class 'list'>
         """
+        processed_batch = [self.preprocess_text(text) for text in text_batch]
         if self.backend == "ollama":
-            return [self.get_embedding(text) for text in text_batch]
-        
+            return [self.get_embedding(text) for text in processed_batch]
+
         elif self.backend == "sentence-transformers":
-            embeddings = self._model.encode(text_batch)
-            return embeddings.tolist()         
-        
+            embeddings = self._model.encode(processed_batch)
+            return embeddings.tolist()
+
         elif self.backend == "openai":
             response = self._client.embeddings.create(
                 model=self.model_name,
-                input=text_batch
+                input=processed_batch
             )
             return [item.embedding for item in response.data]
     

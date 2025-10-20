@@ -137,6 +137,7 @@ class EmbeddingManager:
         """
         processed_batch = [self.preprocess_text(text) for text in text_batch]
         if self.backend == "ollama":
+            # Process each text individually for Ollama
             return [self.get_embedding(text) for text in processed_batch]
 
         elif self.backend == "sentence-transformers":

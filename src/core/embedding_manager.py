@@ -28,7 +28,7 @@ class EmbeddingManager:
     def __init__(
         self, 
         model_name: str = None,
-        backend: EmbeddingBackend = "ollama"
+        backend: EmbeddingBackend = "sentence-transformers"  # Changed default to sentence-transformers
     ):
         """
         Initialize embedding manager.
@@ -37,7 +37,7 @@ class EmbeddingManager:
             model_name: Name of the embedding model
             backend: Which embedding service to use
         """
-        self.model_name = model_name or settings.embedding_model
+        self.model_name = model_name or settings.EMBEDDING_MODEL
         self.backend = backend
         self._model = None
         self._initialize_backend()

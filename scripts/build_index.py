@@ -22,35 +22,37 @@ from src.core.config import settings
 import faiss
 
 
-def build_vector_index(products: list[dict], output_dir: Path) -> None:
+def build_vector_index(papers: list[dict], output_dir: Path) -> None:
     """Build and save FAISS vector index."""
-    logger.info(f"Building vector index for {len(products)} products...")
+    logger.info(f"Building vector index for {len(papers)} papers...")
 
     documents = []
-    for product in products:
-        text = f"{product.get('name', '')} {product.get('description', '')} {product.get('category', '')}"
+    doc_ids = []
+    for i, paper in enumerate(papers):
+        text = f"{paper.get('title', '')} {paper.get('abstract', '')} {paper.get('category', '')}"
         documents.append(text.strip())
+        doc_ids.append(str(i))
     
     manager = EmbeddingManager(
         backend="sentence-transformers",
         model_name="all-MiniLM-L6-v2"
     )
-    manager.preprocess_text = lambda text: text.strip().lower()
-    
-    print("Generating embeddings...")
+
+    logger.info("Generating embeddings...")
     embeddings = manager.get_batch_embedding(documents)
     
     logger.info("Generating embeddings completed.")
     search = EmbeddingSearch(manager)
-    search.dump_in_vector_store(embeddings, documents)
+    search.dump_in_vector_store(embeddings, documents, doc_ids)
     logger.info("FAISS index built successfully.")
     
-    index_path = settings.INDEX_DIR / "products_vector.faiss"
-    faiss.write_index(search.index, str(index_path))
+    index_path = output_dir / "arxiv_vector.faiss"
+    search.save_index(str(index_path))
     logger.info(f"Vector index saved to {index_path}")
 
-    metadata_path = output_dir / "products_metadata.pkl"
-    metadata = {str(i): products[i] for i in range(len(products))}
+    metadata_path = output_dir / "arxiv_metadata.pkl"
+    
+    metadata = {str(i): paper for i, paper in enumerate(papers)}
     with open(metadata_path, 'wb') as f:
         pickle.dump(metadata, f)
     logger.info(f"Metadata saved to {metadata_path}")
@@ -58,31 +60,31 @@ def build_vector_index(products: list[dict], output_dir: Path) -> None:
     return search
 
 
-def build_bm25_index(products: list[dict], output_dir: Path) -> None:
+def build_bm25_index(papers: list[dict], output_dir: Path) -> None:
     """Build and save BM25 index."""
-    print(f"Building BM25 index for {len(products)} products...")
+    print(f"Building BM25 index for {len(papers)} papers...")
     
     documents = []
-    for i, product in enumerate(products):
-        text = f"{product.get('name', '')} {product.get('description', '')} {product.get('category', '')}"
-        doc = Document(id=str(i), text=text.strip())
+    for i, paper in enumerate(papers):
+        text = f"{paper.get('title', '')} {paper.get('abstract', '')} {paper.get('category', '')}"
+        doc = Document(text.strip())
         documents.append(doc)
 
     bm25 = BM_25(documents)
     
-    bm25_path = output_dir / "products_bm25.pkl"
+    bm25_path = output_dir / "arxiv_bm25.pkl"
     with open(bm25_path, 'wb') as f:
         pickle.dump(bm25, f)
     print(f"BM25 index saved to {bm25_path}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Build search indices from product dataset")
+    parser = argparse.ArgumentParser(description="Build search indices from ArXiv dataset")
     parser.add_argument(
         "--dataset",
         type=str,
         required=True,
-        help="Path to product dataset JSON file"
+        help="Path to ArXiv dataset JSON/JSONL file"
     )
     parser.add_argument(
         "--output",
@@ -106,10 +108,18 @@ def main():
         return
 
     print(f"Loading dataset from {dataset_path}...")
-    with open(dataset_path) as f:
-        products = json.load(f)
     
-    print(f"Loaded {len(products)} products")
+    products = []
+    with open(dataset_path) as f:
+        if dataset_path.suffix.lower() == '.jsonl':
+            for line in f:
+                line = line.strip()
+                if line:
+                    products.append(json.loads(line))
+        else:
+            products = json.load(f)
+    
+    logger.info(f"Loaded {len(products)} papers from {dataset_path}")
     
     output_dir = Path(args.output)
     output_dir.mkdir(parents=True, exist_ok=True)

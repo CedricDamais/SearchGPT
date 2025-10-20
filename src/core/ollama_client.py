@@ -6,7 +6,6 @@ Ollama client for LLM interactions. This will be used for the prompt based
 re-ranking of documents. it will be used in the LLM re-ranking module.
 """
 
-
 class OllamaClient:
     
     def __init__(self, model_name = None, embedding_model = None):
@@ -33,12 +32,6 @@ class OllamaClient:
             return response
         else:
             return response["message"]
-    
-    def get_embedding(self, text : str ) -> str:
-        pass
-    
-    def get_batch_embedding(self, text_batch : list[str]) -> list[str]:
-        pass
 
     def rerank(self, query : str, documents : list[str]) -> list[tuple[str, float]]:
         """

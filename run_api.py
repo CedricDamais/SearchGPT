@@ -11,10 +11,9 @@ def main():
     """Launch the FastAPI backend."""
     project_root = Path(__file__).parent
     
-    print("🚀 Starting SearchGPT API Backend...")
-    print("🌐 API will be available at: http://localhost:8000")
-    print("📚 API docs will be available at: http://localhost:8000/docs")
-    print("-" * 60)
+    print("Starting SearchGPT API Backend...")
+    print("API will be available at: http://localhost:8000")
+    print("API docs will be available at: http://localhost:8000/docs")
     
     # Launch FastAPI with uvicorn
     try:
@@ -26,9 +25,9 @@ def main():
             "--reload",
         ], cwd=project_root)
     except KeyboardInterrupt:
-        print("\n👋 Shutting down SearchGPT API...")
+        print("\nShutting down SearchGPT API...")
     except Exception as e:
-        print(f"❌ Error running API: {e}")
+        print(f"Error running API: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":

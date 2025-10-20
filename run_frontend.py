@@ -10,7 +10,6 @@ from pathlib import Path
 
 def main():
     """Launch the Streamlit app."""
-    # Get the project root directory
     project_root = Path(__file__).parent
     app_path = project_root / "src" / "frontend" / "app.py"
     
@@ -18,13 +17,13 @@ def main():
         print(f"Error: Streamlit app not found at {app_path}")
         sys.exit(1)
     
-    print("🚀 Starting SearchGPT Frontend...")
-    print(f"📍 App location: {app_path}")
-    print("🌐 Frontend will be available at: http://localhost:8501")
-    print("🔧 Make sure the API is running at: http://localhost:8000")
+    print("Starting SearchGPT Frontend...")
+    print(f"App location: {app_path}")
+    print("Frontend will be available at: http://localhost:8501")
+    print("Make sure the API is running at: http://localhost:8000")
     print("-" * 60)
     
-    # Launch Streamlit
+    # Launch Streamlit frontend (Im not good with streamlit)
     try:
         subprocess.run([
             "uv", "run", "streamlit", "run", 
@@ -35,9 +34,9 @@ def main():
             "--theme.primaryColor", "#1f77b4",
         ], cwd=project_root)
     except KeyboardInterrupt:
-        print("\n👋 Shutting down SearchGPT Frontend...")
+        print("\nShutting down SearchGPT Frontend...")
     except Exception as e:
-        print(f"❌ Error running Streamlit: {e}")
+        print(f"Error running Streamlit: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":

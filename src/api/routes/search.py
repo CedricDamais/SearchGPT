@@ -40,7 +40,8 @@ async def search(request: SearchRequest) -> SearchResponse:
                 title=result["title"],
                 content=result["content"],
                 score=result["score"],
-                metadata=result["metadata"]
+                metadata=result["metadata"],
+                llm_explanation=result.get("llm_explanation")
             )
             for result in raw_results
         ]

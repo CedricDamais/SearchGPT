@@ -1,4 +1,7 @@
 
+from typing import Optional
+
+
 class RakingFusion:
 
     def __init__(self, bm_25_ranking : list[tuple[str, float]], emb_rankings : list[tuple[str, float]], alpha : float = 0.4, beta : float = 0.6) -> None :
@@ -33,7 +36,7 @@ class RakingFusion:
             final_ranking.append((doc_id, new_score))
         
         return final_ranking
-    
-    def reciprocal_rank_fusion(self) -> list[tuple[str, float]] :
+
+    def reciprocal_rank_fusion(self) -> list[tuple[str, float, Optional[str]]] :
         pass
 

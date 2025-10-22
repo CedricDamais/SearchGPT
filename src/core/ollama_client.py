@@ -32,10 +32,3 @@ class OllamaClient:
             return response
         else:
             return response["message"]
-
-    def rerank(self, query : str, documents : list[str]) -> list[tuple[str, float]]:
-        """
-        Rerank documents based on relevance to the query using LLM.
-        Prompt based approach.
-        """
-        pass

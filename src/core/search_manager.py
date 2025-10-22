@@ -16,6 +16,7 @@ from src.hybrid_search.my_bm25 import BM_25
 from src.hybrid_search.fusion_layer import RakingFusion
 from src.hybrid_search.my_bm25 import Document as BM25Doc
 from src.hybrid_search.embedding_search import EmbeddingSearch
+from src.llm_reranking.prompt_based.llm_reranker import LLMReranker
 
 logger = logging.getLogger(__name__)
 
@@ -251,7 +252,7 @@ class SearchManager:
         query: str, 
         top_k: int = 10, 
         alpha: float = 0.5
-    ) -> List[Tuple[str, float]]:
+    ) -> List[Tuple[str, float, Optional[str]]]:
         """
         Perform hybrid search combining BM25 and vector search.
         
@@ -261,14 +262,18 @@ class SearchManager:
             alpha: Balance between BM25 (alpha) and vector (1-alpha) search
             
         Returns:
-            List of (document_id, score) tuples sorted by fused score
+            List of (document_id, score, explanation) tuples sorted by fused score
+            Explanation is None for non-LLM reranked results
         """
         if not self.is_initialized():
             raise RuntimeError("Search indices not initialized")
         
         bm25_results = self.search_bm25(query, top_k * 2)
         
-        vector_results = self.search_vector(query, top_k * 2)  # Get more for fusion
+        vector_results = self.search_vector(query, top_k * 2)
+
+        logger.info(f"BM25 results: {bm25_results[:5]}")
+        logger.info(f"Vector results: {vector_results[:5]}")
         
         fusion = RakingFusion(
             bm_25_ranking=bm25_results,
@@ -276,10 +281,67 @@ class SearchManager:
             alpha=alpha,
             beta=1.0 - alpha
         )
+
+        fused_results = [(doc_id, score, None) for doc_id, score in fusion.weighted_sum()]
+
+        logger.info(f"Fused {len(fused_results)} results using hybrid search with alpha={alpha}")
         
-        fused_results = fusion.weighted_sum()
-        
+        try:
+            re_ranker = LLMReranker()
+            
+            docs_for_reranking = []
+            text_to_doc_id = {}
+            
+            for doc_id, score, _ in fused_results:
+                doc = self.get_document_by_id(doc_id)
+                if doc:
+                    doc_text = f"{doc.title}: {doc.content}"
+                    docs_for_reranking.append((doc_text, score))
+                    text_to_doc_id[doc_text] = doc_id
+            
+            if docs_for_reranking:
+                logger.info(f"Starting LLM reranking for {len(docs_for_reranking)} documents")
+                reranked_results = re_ranker.rerank(query, docs_for_reranking, top_k)
+                logger.info(f"LLM reranking completed")
+                
+                # Convert reranked results back to (doc_id, score, explanation) format
+                converted_results = []
+                for reranked_text, new_score, explanation in reranked_results:
+                    # Find the corresponding doc_id by matching title (more robust than full text)
+                    found_match = False
+                    for doc_id, score, _ in fused_results:
+                        doc = self.get_document_by_id(doc_id)
+                        if doc:
+                            
+                            if doc.title in reranked_text or reranked_text.startswith(doc.title):
+                                converted_results.append((doc_id, new_score, explanation))
+                                found_match = True
+                                break
+                    
+                    if not found_match:
+                        for doc_id, score, _ in fused_results:
+                            doc = self.get_document_by_id(doc_id)
+                            if doc:
+                                full_doc_text = f"{doc.title}: {doc.content}"
+                                if reranked_text in full_doc_text or full_doc_text.startswith(reranked_text[:50]):
+                                    converted_results.append((doc_id, new_score, explanation))
+                                    found_match = True
+                                    break
+                    
+                    if not found_match:
+                        logger.warning(f"Could not match reranked text: {reranked_text[:100]}...")
+                
+                if converted_results:
+                    fused_results = [(doc_id, score, explanation) for doc_id, score, explanation in converted_results]
+                    logger.info(f"Successfully converted {len(converted_results)} reranked results with explanations")
+                else:
+                    logger.warning("Failed to convert any reranked results, using original fusion results")
+            
+        except Exception as e:
+            logger.error(f"LLM reranking failed: {e}, using fusion results")
+
         fused_results.sort(key=lambda x: x[1], reverse=True)
+
         return fused_results[:top_k]
     
     def get_document_by_id(self, doc_id: str) -> Optional[Document]:
@@ -321,16 +383,25 @@ class SearchManager:
         logger.info(f"Retrieved {len(raw_results)} raw results")
         
         formatted_results = []
-        for doc_id, score in raw_results:
+        for result in raw_results:
+            if len(result) == 3:
+                doc_id, score, explanation = result
+            else:
+                doc_id, score = result
+                explanation = None
+                
             doc = self.get_document_by_id(doc_id)
             if doc:
-                formatted_results.append({
+                result_dict = {
                     "id": doc.id,
                     "title": doc.title,
                     "content": doc.content[:500] + "..." if len(doc.content) > 500 else doc.content,
                     "score": float(score),
                     "metadata": doc.metadata or {}
-                })
+                }
+                if explanation:
+                    result_dict["llm_explanation"] = explanation
+                formatted_results.append(result_dict)
         
         logger.info(f"Formatted {len(formatted_results)} results for output")
     

@@ -6,6 +6,7 @@ import streamlit as st
 import requests
 import time
 import json
+import html
 from typing import List, Dict, Any
 from datetime import datetime
 
@@ -47,8 +48,10 @@ def load_css():
         padding: 1.5rem;
         border-radius: 8px;
         border-left: 4px solid #1f77b4;
-        margin-bottom: 1rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        clear: both;
+        overflow: hidden;
     }
     
     .result-title {
@@ -76,6 +79,23 @@ def load_css():
     .result-metadata {
         font-size: 0.8rem;
         color: #888;
+    }
+    
+    .result-explanation {
+        background: #f0f9ff;
+        border-left: 3px solid #3b82f6;
+        padding: 0.75rem;
+        margin-top: 0.75rem;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        color: #1e40af;
+        font-style: italic;
+    }
+    
+    .explanation-label {
+        font-weight: bold;
+        color: #1e40af;
+        margin-bottom: 0.25rem;
     }
     
     .stats-container {
@@ -121,7 +141,7 @@ def perform_search(query: str, top_k: int, use_reranking: bool, hybrid_alpha: fl
     }
     
     try:
-        response = requests.post(SEARCH_ENDPOINT, json=payload, timeout=30)
+        response = requests.post(SEARCH_ENDPOINT, json=payload, timeout=60)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
@@ -130,18 +150,34 @@ def perform_search(query: str, top_k: int, use_reranking: bool, hybrid_alpha: fl
 def display_search_result(result: Dict[str, Any], index: int):
     """Display a single search result."""
     with st.container():
+        # Escape HTML content to prevent rendering issues
+        title = html.escape(result.get('title', 'No Title'))
+        content = html.escape(result.get('content', 'No content available')[:300])
+        doc_id = html.escape(str(result.get('id', 'N/A')))
+        
+        # Build the explanation HTML if available
+        explanation_html = ""
+        if result.get('llm_explanation'):
+            explanation_text = html.escape(result.get('llm_explanation'))
+            explanation_html = f"""
+            <div class="result-explanation">
+                <div class="explanation-label">💡 LLM Explanation:</div>
+                {explanation_text}
+            </div>
+            """
+        
         st.markdown(f"""
         <div class="result-card">
             <div class="result-title">
-                {result.get('title', 'No Title')}
+                {title}
                 <span class="result-score">Score: {result.get('score', 0):.3f}</span>
             </div>
             <div class="result-content">
-                {result.get('content', 'No content available')[:300]}...
+                {content}...
             </div>
+            {explanation_html}
             <div class="result-metadata">
-                ID: {result.get('id', 'N/A')} | 
-                Metadata: {json.dumps(result.get('metadata', {})) if result.get('metadata') else 'None'}
+                ID: {doc_id}
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -254,8 +290,10 @@ def main():
                 
                 # Display results
                 if results.get('results'):
+                    st.write(f"Displaying {len(results['results'])} results:")
                     for i, result in enumerate(results['results']):
                         display_search_result(result, i)
+                        st.markdown("---")  # Add separator between results
                 else:
                     st.info("No results found. Try a different query or adjust the search parameters.")
                 
